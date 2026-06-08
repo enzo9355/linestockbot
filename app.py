@@ -1,5 +1,5 @@
 # app.py
-# v5.6 企業級架構版：導入記憶體快取、修復 Pandas/NumPy 廣播衝突、增強穩定度
+# v5.8 穩定版：新增首頁健康檢查端點防休眠，並梳理重複路由確保 Flask 正常啟動
 # --------------------------------------------------
 
 import os
@@ -47,10 +47,8 @@ else:
 finmind_token = ""
 CATEGORY_PAGE_SIZE = 12
 
-# 💡 [架構升級] 系統級快取字典 (Code -> (Data, Timestamp))
-# 避免 Render OOM 與解決 LINE Webhook 5秒超時問題
 _SYSTEM_CACHE = {}
-CACHE_EXPIRY_SECONDS = 3600  # 快取保留 1 小時
+CACHE_EXPIRY_SECONDS = 3600  
 
 # ==================================================
 # 2. 資料抓取與清洗模組
@@ -120,7 +118,7 @@ def get_data(code, days=730):
     return pd.DataFrame()
 
 # ==================================================
-# 3. 核心運算模組 (LGBM + Gemini)
+# 3. 核心運算模組 (LGBM)
 # ==================================================
 def get_news(name):
     try:
@@ -148,7 +146,6 @@ def run_ai_engine(df):
         w_df['T'] = (w_df['Close'].shift(-5) > w_df['Close']).astype(int)
         v_df = w_df.dropna(subset=['T']).copy()
         
-        # 💡 [修正] 防護機制：資料量不足時放棄訓練，避免演算法崩潰
         if len(v_df) < 60: return None
         split = int(len(v_df) * 0.8)
         
@@ -162,7 +159,6 @@ def run_ai_engine(df):
         X_te = sc.transform(v_df.iloc[split:][feats])
         probs = model.predict_proba(X_te)[:, 1]
         
-        # 💡 [修正] 將 pandas Series 強制轉換為 numpy array (.values)，避免 np.where 索引不對齊
         rets = (v_df.iloc[split:]['Close'].shift(-1) / v_df.iloc[split:]['Close'] - 1).fillna(0).values
         strat_ret = np.where(probs > 0.6, rets, 0)
         
@@ -174,7 +170,6 @@ def run_ai_engine(df):
         cum_ret = np.cumprod(1 + strat_ret)
         bh_ret = np.cumprod(1 + rets)
         
-        # 💡 [修正] numpy array 使用 [-1] 提取最後一筆，不再有 KeyError
         strat_cum = cum_ret[-1] - 1 if len(cum_ret) > 0 else 0
         bh_cum = bh_ret[-1] - 1 if len(bh_ret) > 0 else 0
         win_rate = (strat_ret[strat_ret!=0]>0).mean()*100 if len(strat_ret[strat_ret!=0])>0 else 0
@@ -197,7 +192,7 @@ def run_ai_engine(df):
         print(f"回測引擎錯誤: {e}")
         return None
 
-def get_ai_insight(name, data, bt, news):
+def get_ai_insight_for_broadcast(name, data, bt, news):
     if not gemini_model: return "未設定 API Key，無法生成觀點。"
     n_txt = "\n".join([n['title'] for n in news])
     prompt = f"""請以資深分析師語氣，針對{name}撰寫100字內洞見。不要廢話，直接給建議。
@@ -213,13 +208,12 @@ AI勝率:{data['prob']}%
             {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
         ]
         response = gemini_model.generate_content(prompt, safety_settings=safety)
-        # 💡 [修正] 統一內部處理為純文字，由前端 HTML 自行處理換行
         return response.text.strip() if response.text else "AI 觀點生成為空。"
     except Exception as e:
         return "暫時無法生成 AI 觀點，請參考量化數據。"
 
 # ==================================================
-# 4. 分析總控 (💡 實作記憶體快取)
+# 4. 分析總控
 # ==================================================
 def _do_analyze(code):
     df = get_data(code)
@@ -233,7 +227,6 @@ def _do_analyze(code):
     news = get_news(name)
     prob = int(last['AI_P'])
     trend = "多頭" if last['Close'] > last['MA20'] else "空頭"
-    insight = get_ai_insight(name, {"price": last['Close'], "prob": prob}, bt, news)
     
     tv_df = df.copy().reset_index()
     tv_df['Date'] = tv_df['Date'].dt.strftime('%Y-%m-%d')
@@ -256,7 +249,7 @@ def _do_analyze(code):
 
     return {
         "code": code, "name": name, "price": last['Close'], "prob": prob, 
-        "insight": insight, "bt": bt, "news": news, "trend": trend,
+        "bt": bt, "news": news, "trend": trend,
         "rsi": last['RSI'], "ma20": last['MA20'],
         "candles": json.dumps(tv_df[['Date','Open','High_corr','Low_corr','Close']].rename(columns={'Date':'time','Open':'open','High_corr':'high','Low_corr':'low','Close':'close'}).to_dict('records')),
         "ma20_line": json.dumps(tv_df[['Date','MA20']].dropna().rename(columns={'Date':'time','MA20':'value'}).to_dict('records')),
@@ -265,30 +258,23 @@ def _do_analyze(code):
     }
 
 def analyze(code):
-    """快取包裝器：優先從記憶體讀取，若無則執行運算並存入"""
     now = time.time()
     if code in _SYSTEM_CACHE:
         cached_data, timestamp = _SYSTEM_CACHE[code]
         if now - timestamp < CACHE_EXPIRY_SECONDS:
             return cached_data
-            
-    # 執行實際運算
     data = _do_analyze(code)
-    if data:
-        _SYSTEM_CACHE[code] = (data, now)
+    if data: _SYSTEM_CACHE[code] = (data, now)
     return data
 
 def market_forecast(): return analyze("TAIEX")
 
 # ==================================================
-# 5. UI 渲染 
+# 5. UI 渲染
 # ==================================================
 def render_web(d):
     bt = d['bt']
     news_html = "".join([f'<a href="{n["link"]}" target="_blank" class="news-link">🔹 {n["title"]}</a>' for n in d['news']]) if d['news'] else "暫無相關新聞"
-    
-    # 前端處理 insight 的換行
-    insight_html_content = d['insight'].replace('\n', '<br>')
     
     html = f"""
 <!DOCTYPE html>
@@ -316,11 +302,6 @@ def render_web(d):
 <div class="wrap">
 <h1>{d['name']} ({d['code']})</h1>
 
-<div class="card small" style="background: linear-gradient(135deg, rgba(0,242,254,0.1), rgba(79,172,254,0.05)); border: 1px solid #00f2fe;">
-    <h2 style="color: #00f2fe; border-bottom: 1px solid rgba(0,242,254,0.2);">🌞 AI 專屬晨報與觀點</h2>
-    <div style="font-size: 16px; line-height: 1.8; color: #fff;">{insight_html_content}</div>
-</div>
-
 <div class="card small">
     💰 最新收盤：<span class="highlight">{d['price']:.2f}</span><br>
     📈 當前趨勢：{d['trend']}<br>
@@ -328,7 +309,7 @@ def render_web(d):
 </div>
 
 <div class="card">
-    <h2>📈 互動式技術線圖與 AI 預測軌跡</h2>
+    <h2>📈 互動式技術線圖與預測軌跡</h2>
     <div id="tvchart"></div>
 </div>
 
@@ -350,7 +331,7 @@ def render_web(d):
 </div>
 
 <div class="card small">
-    <h2>📊 AI 歷史回測報告 (近 {bt['days']} 交易日)</h2>
+    <h2>📊 歷史回測報告 (近 {bt['days']} 交易日)</h2>
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 20px;">
         <div style="background: rgba(0,0,0,0.25); padding: 15px; border-radius: 12px; text-align: center;"><div style="font-size: 13px; color: #aaa; margin-bottom: 5px;">AI 策略報酬</div><div class="highlight" style="font-size: 1.3em;">{bt['strat_cum']:.2f}%</div></div>
         <div style="background: rgba(0,0,0,0.25); padding: 15px; border-radius: 12px; text-align: center;"><div style="font-size: 13px; color: #aaa; margin-bottom: 5px;">買進持有報酬</div><div style="font-size: 1.3em; color: #ddd;">{bt['bh_cum']:.2f}%</div></div>
@@ -387,7 +368,7 @@ def render_web(d):
         candleS.setData(cData);
 
         chart.addLineSeries({{ color: '#00f2fe', lineWidth: 1, title: 'MA20' }}).setData({d['ma20_line']});
-        chart.addLineSeries({{ color: '#ff9800', lineWidth: 2, lineStyle: 2, title: 'AI 5日預測' }}).setData({d['pred']});
+        chart.addLineSeries({{ color: '#ff9800', lineWidth: 2, lineStyle: 2, title: '5日預測' }}).setData({d['pred']});
 
         const probS = chart.addHistogramSeries({{ priceFormat: {{ type: 'volume' }}, priceScaleId: '' }});
         chart.priceScale('').applyOptions({{ scaleMargins: {{ top: 0.8, bottom: 0 }} }});
@@ -444,8 +425,10 @@ def broadcast_weekly():
     d = analyze("TAIEX")
     if not d: return "分析失敗", 500
     
+    insight = get_ai_insight_for_broadcast("台股大盤", {"price": d['price'], "prob": d['prob']}, d['bt'], d['news'])
+    
     url = f"{request.host_url}market".replace("http://", "https://")
-    msg = f"🌞 周一 AI 投資晨報\n\n📊 大盤分析：\n{d['insight'][:120]}...\n\n🔗 點擊查看 AI 預測軌跡：\n{url}"
+    msg = f"🌞 周一 AI 投資晨報\n\n📊 大盤分析：\n{insight}\n\n🔗 點擊查看 AI 預測軌跡：\n{url}"
     try:
         line_bot_api.broadcast(TextSendMessage(text=msg))
         return f"廣播成功：{datetime.datetime.now()}", 200
@@ -453,23 +436,13 @@ def broadcast_weekly():
         return f"發送失敗：{str(e)}", 500
 
 # ==================================================
-# 8. 路由與 LINE 基礎指令 (💡 修正過度轉義字串)
+# 8. 路由與 LINE 基礎指令 (💡 確保名稱不重複版)
 # ==================================================
-# 💡 [新增] 健康檢查端點：給 UptimeRobot 敲擊，防止 Render 休眠！
 @app.route("/")
 def home():
+    """健康檢查端點：給外部監控服務敲擊，防止 Render 休眠"""
     return "AI Stock Bot is awake and running!", 200
 
-@app.route("/stock/<code>")
-def stock_page(code):
-    d = analyze(code)
-    return render_web(d) if d else "查無資料"
-
-@app.route("/market")
-def market_page():
-    d = analyze("TAIEX")
-    return render_web(d) if d else "資料更新中"
-    
 @app.route("/stock/<code>")
 def stock_page(code):
     d = analyze(code)
@@ -496,7 +469,7 @@ def handle_message(event):
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text="大盤資料暫時無法取得，請稍後再試。"))
             return
         url = f"{request.host_url}market".replace("http://", "https://")
-        text = f"📊 台股大盤（加權指數）\n\n💰 指數點位：{data['price']:.2f}\n📈 當前趨勢：{data['trend']}\n🎯 真實 AI 預測勝率：{data['prob']}%\n\n📌 點擊查看【AI 專屬觀點與完整分析】：\n{url}"
+        text = f"📊 台股大盤（加權指數）\n\n💰 指數點位：{data['price']:.2f}\n📈 當前趨勢：{data['trend']}\n🎯 真實 AI 預測勝率：{data['prob']}%\n\n📌 點擊查看【完整數據與回測分析】：\n{url}"
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=text))
         
     elif msg == "預測":
@@ -534,7 +507,7 @@ def handle_message(event):
                 line_bot_api.reply_message(event.reply_token, TextSendMessage(text="查無資料，請稍後再試。"))
                 return
             url = f"{request.host_url}stock/{code}".replace("http://", "https://")
-            text = f"📊 {name} ({code})\n\n💰 最新收盤：{data['price']:.2f}\n📈 當前趨勢：{data['trend']}\n🎯 真實 AI 預測勝率：{data['prob']}%\n\n📌 點擊查看【AI 專屬觀點與完整分析】：\n{url}"
+            text = f"📊 {name} ({code})\n\n💰 最新收盤：{data['price']:.2f}\n📈 當前趨勢：{data['trend']}\n🎯 真實 AI 預測勝率：{data['prob']}%\n\n📌 點擊查看【完整數據與回測分析】：\n{url}"
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text=text))
         else:
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text="請輸入股票代碼，或輸入：預測 / 大盤預測 / 產業列表"))
