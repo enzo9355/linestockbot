@@ -20,7 +20,7 @@ from flask import Flask, request, abort, render_template_string
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import (
-    MessageEvent, TextMessage, TextSendMessage,
+    MessageEvent, TextMessage, TextSendMessage, FlexSendMessage,
     QuickReply, QuickReplyButton, MessageAction
 )
 
@@ -491,6 +491,92 @@ def broadcast_weekly():
 # ==================================================
 # 8. 路由與 LINE 基礎指令 (💡 確保名稱不重複版)
 # ==================================================
+def build_stock_flex_message(code, name, data, url):
+    color_prob = "#10b981" if data['prob'] >= 50 else "#ef4444"
+    color_s = "#10b981" if data['s_score'] >= 50 else "#ef4444"
+    color_trend = "#10b981" if "多" in data['trend'] else "#ef4444"
+
+    return {
+        "type": "bubble",
+        "size": "mega",
+        "header": {
+            "type": "box",
+            "layout": "vertical",
+            "backgroundColor": "#1e293b",
+            "paddingAll": "20px",
+            "contents": [
+                {
+                    "type": "text",
+                    "text": f"📊 {name} ({code})",
+                    "color": "#ffffff",
+                    "weight": "bold",
+                    "size": "xl"
+                }
+            ]
+        },
+        "body": {
+            "type": "box",
+            "layout": "vertical",
+            "backgroundColor": "#f8fafc",
+            "paddingAll": "20px",
+            "spacing": "md",
+            "contents": [
+                {
+                    "type": "box",
+                    "layout": "horizontal",
+                    "contents": [
+                        { "type": "text", "text": "💰 最新收盤", "color": "#64748b", "size": "sm", "flex": 4 },
+                        { "type": "text", "text": f"{data['price']:.2f}", "color": "#0f172a", "size": "md", "weight": "bold", "align": "end", "flex": 5 }
+                    ]
+                },
+                {
+                    "type": "box",
+                    "layout": "horizontal",
+                    "contents": [
+                        { "type": "text", "text": "📈 當前趨勢", "color": "#64748b", "size": "sm", "flex": 4 },
+                        { "type": "text", "text": data['trend'], "color": color_trend, "size": "md", "weight": "bold", "align": "end", "flex": 5 }
+                    ]
+                },
+                {
+                    "type": "box",
+                    "layout": "horizontal",
+                    "contents": [
+                        { "type": "text", "text": "🌡 新聞情緒", "color": "#64748b", "size": "sm", "flex": 4 },
+                        { "type": "text", "text": f"{data['s_status']} ({data['s_score']:.1f})", "color": color_s, "size": "md", "weight": "bold", "align": "end", "flex": 5 }
+                    ]
+                },
+                { "type": "separator", "margin": "md", "color": "#cbd5e1" },
+                {
+                    "type": "box",
+                    "layout": "horizontal",
+                    "margin": "md",
+                    "contents": [
+                        { "type": "text", "text": "🎯 AI 勝率", "color": "#0f172a", "size": "md", "weight": "bold", "flex": 4 },
+                        { "type": "text", "text": f"{data['prob']}%", "color": color_prob, "size": "lg", "weight": "bold", "align": "end", "flex": 5 }
+                    ]
+                }
+            ]
+        },
+        "footer": {
+            "type": "box",
+            "layout": "vertical",
+            "backgroundColor": "#f8fafc",
+            "paddingAll": "16px",
+            "contents": [
+                {
+                    "type": "button",
+                    "style": "primary",
+                    "color": "#0284c7",
+                    "action": {
+                        "type": "uri",
+                        "label": "📈 查看圖表與回測報告",
+                        "uri": url
+                    }
+                }
+            ]
+        }
+    }
+
 @app.route("/")
 def home():
     """健康檢查端點：給外部監控服務敲擊，防止 Render 休眠"""
@@ -522,8 +608,8 @@ def handle_message(event):
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text="大盤資料暫時無法取得，請稍後再試。"))
             return
         url = f"{request.host_url}market".replace("http://", "https://")
-        text = f"📊 台股大盤（加權指數）\n\n💰 指數點位：{data['price']:.2f}\n📈 當前趨勢：{data['trend']}\n🌡 市場情緒：{data['s_status']} ({data['s_score']:.1f})\n🎯 真實 AI 預測勝率：{data['prob']}%\n\n📌 點擊查看【完整數據與回測分析】：\n{url}"
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=text))
+        flex_content = build_stock_flex_message("TAIEX", "台股大盤 (加權指數)", data, url)
+        line_bot_api.reply_message(event.reply_token, FlexSendMessage(alt_text="📊 台股大盤預測出爐，點擊查看！", contents=flex_content))
         
     elif msg == "預測":
         qr, txt = build_category_quick_reply(1)
@@ -560,8 +646,8 @@ def handle_message(event):
                 line_bot_api.reply_message(event.reply_token, TextSendMessage(text="查無資料，請稍後再試。"))
                 return
             url = f"{request.host_url}stock/{code}".replace("http://", "https://")
-            text = f"📊 {name} ({code})\n\n💰 最新收盤：{data['price']:.2f}\n📈 當前趨勢：{data['trend']}\n🌡 新聞情緒：{data['s_status']} ({data['s_score']:.1f})\n🎯 綜合 AI 預測勝率：{data['prob']}%\n\n📌 點擊查看【完整數據與回測分析】：\n{url}"
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=text))
+            flex_content = build_stock_flex_message(code, name, data, url)
+            line_bot_api.reply_message(event.reply_token, FlexSendMessage(alt_text=f"📊 {name} ({code}) 預測出爐，點擊查看！", contents=flex_content))
         else:
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text="請輸入股票代碼，或輸入：預測 / 大盤預測 / 產業列表"))
 
