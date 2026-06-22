@@ -1,5 +1,6 @@
 import copy
 import os
+import threading
 import time
 import unittest
 from types import SimpleNamespace
@@ -77,6 +78,34 @@ class SlowReadStore:
     def update(self, user_id, mutate):
         self.update_calls += 1
         raise AssertionError("read timeout must never schedule a late update")
+
+
+class BlockingReadStore:
+    def __init__(self):
+        self.release_reads = threading.Event()
+        self.condition = threading.Condition()
+        self.load_calls = 0
+        self.finished_calls = 0
+
+    def load(self, user_id):
+        with self.condition:
+            self.load_calls += 1
+            self.condition.notify_all()
+        self.release_reads.wait(timeout=2)
+        with self.condition:
+            self.finished_calls += 1
+            self.condition.notify_all()
+        return empty_state(), "v1"
+
+    def wait_for(self, attribute, expected, timeout=1):
+        deadline = time.monotonic() + timeout
+        with self.condition:
+            while getattr(self, attribute) < expected:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return False
+                self.condition.wait(remaining)
+        return True
 
 
 class LineBuilderTests(unittest.TestCase):
@@ -423,6 +452,35 @@ class MessageFlowTests(unittest.TestCase):
 
         time.sleep(0.8)
         self.assertTrue(all(store.update_calls == 0 for store in stores))
+
+    def test_background_state_readers_are_bounded_and_slots_are_reusable(self):
+        store = BlockingReadStore()
+        limit = stock_app.LINE_STATE_READ_MAX_WORKERS
+        slots = threading.BoundedSemaphore(limit)
+
+        with patch.object(stock_app, "line_store", store), \
+             patch.object(stock_app, "_line_state_read_slots", slots):
+            for _ in range(limit):
+                with self.assertRaises(StoreError):
+                    stock_app.get_line_state_bounded("U123", timeout=0.01)
+            self.assertTrue(store.wait_for("load_calls", limit))
+
+            started = time.perf_counter()
+            with self.assertRaises(StoreError):
+                stock_app.get_line_state_bounded("U123", timeout=0.2)
+            self.assertLess(time.perf_counter() - started, 0.05)
+            self.assertEqual(store.load_calls, limit)
+
+            store.release_reads.set()
+            self.assertTrue(store.wait_for("finished_calls", limit))
+            for _ in range(limit):
+                self.assertTrue(slots.acquire(timeout=0.2))
+            for _ in range(limit):
+                slots.release()
+            state = stock_app.get_line_state_bounded("U123", timeout=0.2)
+
+        self.assertEqual(state, empty_state())
+        self.assertEqual(store.load_calls, limit + 1)
 
     def test_watchlist_and_strong_signals_reply_in_line(self):
         state = empty_state()

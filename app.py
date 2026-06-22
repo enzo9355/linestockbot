@@ -45,6 +45,8 @@ GCP_PROJECT_ID = os.getenv("GCP_PROJECT_ID")
 LOCAL_HOST = os.getenv("HOST", "127.0.0.1")
 BROADCAST_TOKEN = os.getenv("BROADCAST_TOKEN")
 LINE_STATE_READ_BUDGET_SECONDS = 0.25
+LINE_STATE_READ_MAX_WORKERS = 4
+_line_state_read_slots = threading.BoundedSemaphore(LINE_STATE_READ_MAX_WORKERS)
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 1_000_000
@@ -720,15 +722,28 @@ def get_line_state_bounded(user_id, timeout=LINE_STATE_READ_BUDGET_SECONDS):
     store = line_store
     if store is None:
         raise StoreError("關注功能尚未設定")
+    slots = _line_state_read_slots
+    if not slots.acquire(blocking=False):
+        raise StoreError("關注功能讀取忙碌")
     result = queue.Queue(maxsize=1)
 
     def load_state():
         try:
-            result.put((True, store.load(user_id)[0]))
+            value = (True, store.load(user_id)[0])
         except Exception:
-            result.put((False, None))
+            value = (False, None)
+        finally:
+            try:
+                result.put_nowait(value)
+            except queue.Full:
+                pass
+            slots.release()
 
-    threading.Thread(target=load_state, daemon=True).start()
+    try:
+        threading.Thread(target=load_state, daemon=True).start()
+    except Exception:
+        slots.release()
+        raise StoreError("關注功能讀取失敗") from None
     try:
         succeeded, state = result.get(timeout=timeout)
     except queue.Empty:
