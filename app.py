@@ -781,6 +781,48 @@ def build_stock_flex_message(code, name, data, url):
         }
     }
 
+def build_line_summary_card(title, lines, cta_label, url, accent="#39c6a3"):
+    """建立只有一個 Web CTA 的 LINE 摘要卡。"""
+    return {
+        "type": "bubble",
+        "size": "kilo",
+        "header": {
+            "type": "box", "layout": "vertical", "backgroundColor": "#081321",
+            "paddingAll": "16px", "contents": [{
+                "type": "text", "text": "AI QUANT", "color": accent,
+                "size": "xs", "weight": "bold",
+            }],
+        },
+        "body": {
+            "type": "box", "layout": "vertical", "backgroundColor": "#0d1a2b",
+            "paddingAll": "18px", "spacing": "md", "contents": [
+                {"type": "text", "text": title, "color": "#eef6ff", "size": "lg", "weight": "bold", "wrap": True},
+                *[{"type": "text", "text": line, "color": "#8fa4bd", "size": "sm", "wrap": True} for line in lines],
+            ],
+        },
+        "footer": {
+            "type": "box", "layout": "vertical", "backgroundColor": "#0d1a2b",
+            "paddingAll": "14px", "contents": [{
+                "type": "button", "style": "primary", "color": accent,
+                "action": {"type": "uri", "label": cta_label, "uri": url},
+            }],
+        },
+    }
+
+def build_line_navigation_flex(base_url):
+    """Rich Menu 四個入口的可預覽 Flex 版本。"""
+    root = base_url.rstrip("/")
+    entries = [
+        ("今日盤勢", "先看大盤趨勢與五日上漲機率", "查看盤勢", f"{root}/market"),
+        ("熱門產業", "快速比較近期訊號較強的產業", "查看產業", f"{root}/dashboard#sectors"),
+        ("我的關注", "追蹤自選股票與條件提醒", "開啟關注", f"{root}/watchlist"),
+        ("完整分析", "進入量化儀表板做完整判讀", "開啟分析", f"{root}/dashboard"),
+    ]
+    return {
+        "type": "carousel",
+        "contents": [build_line_summary_card(title, [description], cta, url) for title, description, cta, url in entries],
+    }
+
 def build_welcome_flex():
     return {
         "type": "bubble",
@@ -983,19 +1025,31 @@ def callback():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     msg = event.message.text.strip()
-    
-    if msg == "大盤預測" or msg == "大盤":
+    web_root = request.host_url.replace("http://", "https://").rstrip("/")
+
+    if msg in ("大盤預測", "大盤", "今日盤勢"):
         data = analyze("TAIEX")
         if not data:
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text="大盤資料暫時無法取得，請稍後再試。"))
             return
-        url = f"{request.host_url}market".replace("http://", "https://")
+        url = f"{web_root}/market"
         flex_content = build_stock_flex_message("TAIEX", "台股大盤 (加權指數)", data, url)
         line_bot_api.reply_message(event.reply_token, FlexSendMessage(alt_text="📊 台股大盤預測出爐，點擊查看！", contents=flex_content))
         
-    elif msg == "預測":
+    elif msg in ("預測", "熱門產業"):
         qr, _ = build_category_quick_reply(1)
         line_bot_api.reply_message(event.reply_token, FlexSendMessage(alt_text="請選擇產業板塊", contents=build_welcome_flex(), quick_reply=qr))
+
+    elif msg == "我的關注":
+        card = build_line_summary_card("我的關注", ["查看自選股票、提醒規則與最近觸發紀錄。"], "開啟關注清單", f"{web_root}/watchlist")
+        line_bot_api.reply_message(event.reply_token, FlexSendMessage(alt_text="開啟我的關注", contents=card))
+
+    elif msg == "完整分析":
+        card = build_line_summary_card("量化分析總覽", ["從市場摘要、強勢訊號與產業雷達開始判讀。"], "開啟完整分析", f"{web_root}/dashboard")
+        line_bot_api.reply_message(event.reply_token, FlexSendMessage(alt_text="開啟完整分析", contents=card))
+
+    elif msg == "功能選單":
+        line_bot_api.reply_message(event.reply_token, FlexSendMessage(alt_text="量化觀測站功能選單", contents=build_line_navigation_flex(web_root)))
         
     elif msg.startswith("分類第_") and msg.endswith("頁"):
         try: p = int(msg.replace("分類第_", "").replace("頁", ""))
@@ -1033,7 +1087,7 @@ def handle_message(event):
             flex_content = build_stock_flex_message(code, name, data, url)
             line_bot_api.reply_message(event.reply_token, FlexSendMessage(alt_text=f"📊 {name} ({code}) 預測出爐，點擊查看！", contents=flex_content))
         else:
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="請輸入股票代碼，或輸入：預測 / 大盤預測 / 產業列表"))
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="請輸入股票代碼，或輸入：今日盤勢 / 熱門產業 / 我的關注 / 完整分析"))
 
 if __name__ == "__main__":
     app.run(host=LOCAL_HOST, port=int(os.environ.get("PORT", 5000)))

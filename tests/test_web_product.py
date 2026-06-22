@@ -90,6 +90,36 @@ class WebProductTests(unittest.TestCase):
             "prob": 63, "trend": "多頭",
         })
 
+    def test_line_navigation_maps_four_entries_to_web_routes(self):
+        navigation = stock_app.build_line_navigation_flex("https://example.com/")
+
+        self.assertEqual(navigation["type"], "carousel")
+        self.assertEqual(len(navigation["contents"]), 4)
+        expected = {
+            "今日盤勢": "https://example.com/market",
+            "熱門產業": "https://example.com/dashboard#sectors",
+            "我的關注": "https://example.com/watchlist",
+            "完整分析": "https://example.com/dashboard",
+        }
+        actual = {}
+        for card in navigation["contents"]:
+            self.assertEqual(len(card["footer"]["contents"]), 1)
+            action = card["footer"]["contents"][0]["action"]
+            actual[card["body"]["contents"][0]["text"]] = action["uri"]
+        self.assertEqual(actual, expected)
+
+    def test_line_summary_card_has_one_clear_cta(self):
+        card = stock_app.build_line_summary_card(
+            "強勢訊號", ["2330 台積電", "五日上漲機率 68%"],
+            "查看完整分析", "https://example.com/stock/2330",
+        )
+
+        self.assertEqual(len(card["footer"]["contents"]), 1)
+        self.assertEqual(
+            card["footer"]["contents"][0]["action"]["uri"],
+            "https://example.com/stock/2330",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
