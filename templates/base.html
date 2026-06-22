@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#07111f">
+  <title>{% block title %}量化觀測站{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="主要導覽">
+      <a class="brand" href="{{ url_for('dashboard_page') }}"><span class="brand-mark">Q</span><span>量化觀測站</span></a>
+      <nav class="nav-list">
+        <a class="nav-link {% block nav_dashboard %}{% endblock %}" href="{{ url_for('dashboard_page') }}">總覽</a>
+        <a class="nav-link" href="{{ url_for('market_page') }}">大盤分析</a>
+        <a class="nav-link" href="/watchlist">我的關注</a>
+      </nav>
+      <p class="sidebar-note">資料僅供研究參考，不構成投資建議。</p>
+    </aside>
+    <main class="main-content">{% block content %}{% endblock %}</main>
+  </div>
+  <nav class="mobile-nav" aria-label="行動版導覽">
+    <a href="{{ url_for('dashboard_page') }}">總覽</a>
+    <a href="{{ url_for('market_page') }}">大盤</a>
+    <a href="/watchlist">關注</a>
+  </nav>
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

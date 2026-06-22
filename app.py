@@ -17,7 +17,7 @@ import google.generativeai as genai
 
 from sklearn.model_selection import TimeSeriesSplit
 from lightgbm import LGBMClassifier
-from flask import Flask, request, abort
+from flask import Flask, request, abort, render_template, jsonify
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import (
@@ -492,6 +492,16 @@ def analyze(code):
     if data: _SYSTEM_CACHE[code] = (data, now)
     return data
 
+def cached_opportunities(limit=5):
+    now = time.time()
+    items = []
+    for code, (data, timestamp) in _SYSTEM_CACHE.items():
+        if code == "TAIEX" or now - timestamp >= CACHE_EXPIRY_SECONDS:
+            continue
+        if all(key in data for key in ("name", "prob")):
+            items.append({"code": code, "name": data["name"], "prob": data["prob"]})
+    return sorted(items, key=lambda item: item["prob"], reverse=True)[:limit]
+
 def market_forecast(): return analyze("TAIEX")
 
 # ==================================================
@@ -909,6 +919,29 @@ def build_industry_carousel(cat, arr):
 def home():
     """健康檢查端點：給外部監控服務敲擊，防止 Render 休眠"""
     return "AI Stock Bot is awake and running!", 200
+
+@app.route("/dashboard")
+def dashboard_page():
+    return render_template("dashboard.html")
+
+@app.route("/api/dashboard")
+def dashboard_api():
+    market = analyze("TAIEX")
+    if not market:
+        return jsonify({"error": "market data unavailable"}), 503
+    sectors = [
+        {"name": name, "count": len(codes)}
+        for name, codes in list(industry_map.items())[:8]
+    ]
+    return jsonify({
+        "market": {
+            "price": float(market["price"]),
+            "prob": int(market["prob"]),
+            "trend": market["trend"],
+        },
+        "opportunities": cached_opportunities(),
+        "sectors": sectors,
+    })
 
 @app.route("/stock/<code>")
 def stock_page(code):

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}市場總覽｜量化觀測站{% endblock %}
+{% block nav_dashboard %}active{% endblock %}
+{% block content %}
+<div class="page" data-dashboard-endpoint="/api/dashboard">
+  <header class="page-header">
+    <div><p class="eyebrow">MARKET INTELLIGENCE</p><h1>今日決策總覽</h1><p class="muted">先掌握大盤，再決定今天要追蹤什麼。</p></div>
+    <div class="segmented" aria-label="觀察週期"><button class="active" data-period="5d">5日</button><button data-period="20d">20日</button></div>
+  </header>
+
+  <section class="panel market-panel" aria-labelledby="market-title">
+    <div class="section-heading"><div><p class="eyebrow">MARKET PULSE</p><h2 id="market-title">市場摘要</h2></div><span class="status-dot">更新中</span></div>
+    <div class="market-grid" data-market-summary><div class="skeleton tall"></div><div class="skeleton tall"></div><div class="skeleton tall"></div></div>
+  </section>
+
+  <div class="content-grid">
+    <section class="panel span-2" aria-labelledby="signals-title">
+      <div class="section-heading"><div><p class="eyebrow">OPPORTUNITIES</p><h2 id="signals-title">強勢訊號</h2></div><span class="muted small">依五日上漲機率排序</span></div>
+      <div data-opportunities class="stack"><div class="skeleton"></div><div class="skeleton"></div></div>
+    </section>
+    <section class="panel" id="sectors" aria-labelledby="sectors-title">
+      <div class="section-heading"><div><p class="eyebrow">SECTOR MAP</p><h2 id="sectors-title">產業雷達</h2></div></div>
+      <div class="sector-grid" data-sector-grid></div>
+    </section>
+    <section class="panel" aria-labelledby="watchlist-title"><div class="section-heading"><h2 id="watchlist-title">我的關注</h2><a href="/watchlist" class="text-link">管理</a></div><div data-watchlist-preview class="empty-state">尚未加入關注股票</div></section>
+    <section class="panel" aria-labelledby="alerts-title"><div class="section-heading"><h2 id="alerts-title">最近提醒</h2><a href="/watchlist#alerts" class="text-link">查看全部</a></div><div data-alert-preview class="empty-state">目前沒有觸發提醒</div></section>
+  </div>
+  <div class="error-banner" data-dashboard-error hidden>市場資料暫時無法取得，請稍後再試。</div>
+</div>
+{% endblock %}
