@@ -924,6 +924,10 @@ def home():
 def dashboard_page():
     return render_template("dashboard.html")
 
+@app.route("/watchlist")
+def watchlist_page():
+    return render_template("watchlist.html")
+
 @app.route("/api/dashboard")
 def dashboard_api():
     market = analyze("TAIEX")
@@ -941,6 +945,21 @@ def dashboard_api():
         },
         "opportunities": cached_opportunities(),
         "sectors": sectors,
+    })
+
+@app.route("/api/stock/<code>/summary")
+def stock_summary_api(code):
+    if code not in twstock.codes:
+        abort(404)
+    data = analyze(code)
+    if not data:
+        return jsonify({"error": "stock data unavailable"}), 503
+    return jsonify({
+        "code": code,
+        "name": data["name"],
+        "price": float(data["price"]),
+        "prob": int(data["prob"]),
+        "trend": data["trend"],
     })
 
 @app.route("/stock/<code>")

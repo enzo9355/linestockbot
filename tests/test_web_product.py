@@ -70,6 +70,26 @@ class WebProductTests(unittest.TestCase):
         self.assertIn("<details", html)
         self.assertIn("/static/app.css", html)
 
+    def test_watchlist_page_has_complete_alert_workflow_states(self):
+        response = stock_app.app.test_client().get("/watchlist")
+
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        for marker in ["data-watchlist-list", "data-alert-list", "data-alert-form", "data-empty-state", "data-toast"]:
+            self.assertIn(marker, html)
+        for label in ["價格門檻", "機率門檻", "技術條件", "最近觸發"]:
+            self.assertIn(label, html)
+
+    @patch.object(stock_app, "analyze", return_value=analysis_data())
+    def test_stock_summary_api_returns_only_watchlist_fields(self, _analyze):
+        response = stock_app.app.test_client().get("/api/stock/2330/summary")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json(), {
+            "code": "2330", "name": "台積電", "price": 100.0,
+            "prob": 63, "trend": "多頭",
+        })
+
 
 if __name__ == "__main__":
     unittest.main()

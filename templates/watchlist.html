@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}我的關注｜量化觀測站{% endblock %}
+{% block nav_watchlist %}active{% endblock %}
+{% block content %}
+<div class="page watchlist-page">
+  <header class="page-header"><div><p class="eyebrow">PERSONAL MONITOR</p><h1>我的關注</h1><p class="muted">集中追蹤價格、五日機率與技術條件。資料保存在此裝置。</p></div><button class="button primary" data-alert-open>＋ 新增提醒</button></header>
+  <section class="panel">
+    <div class="section-heading"><div><p class="eyebrow">WATCHLIST</p><h2>關注清單</h2></div><span class="muted small">最多 12 檔</span></div>
+    <div class="watchlist-table" data-watchlist-list></div>
+    <div class="empty-state" data-empty-state>尚未加入股票。請從個股分析頁點擊「加入關注」。</div>
+  </section>
+  <div class="watchlist-grid" id="alerts">
+    <section class="panel"><div class="section-heading"><div><p class="eyebrow">RULES</p><h2>提醒規則</h2></div></div><div data-alert-list class="stack"></div></section>
+    <section class="panel"><div class="section-heading"><div><p class="eyebrow">TRIGGERED</p><h2>最近觸發</h2></div></div><div data-alert-log class="stack"><div class="empty-state">目前沒有觸發紀錄</div></div></section>
+  </div>
+</div>
+{% endblock %}

@@ -18,7 +18,7 @@
       <nav class="nav-list">
         <a class="nav-link {% block nav_dashboard %}{% endblock %}" href="{{ url_for('dashboard_page') }}">總覽</a>
         <a class="nav-link" href="{{ url_for('market_page') }}">大盤分析</a>
-        <a class="nav-link" href="/watchlist">我的關注</a>
+        <a class="nav-link {% block nav_watchlist %}{% endblock %}" href="{{ url_for('watchlist_page') }}">我的關注</a>
       </nav>
       <p class="sidebar-note">資料僅供研究參考，不構成投資建議。</p>
     </aside>
@@ -27,8 +27,19 @@
   <nav class="mobile-nav" aria-label="行動版導覽">
     <a href="{{ url_for('dashboard_page') }}">總覽</a>
     <a href="{{ url_for('market_page') }}">大盤</a>
-    <a href="/watchlist">關注</a>
+    <a href="{{ url_for('watchlist_page') }}">關注</a>
   </nav>
+  <dialog class="alert-dialog" data-alert-dialog>
+    <form method="dialog" data-alert-form>
+      <div class="section-heading"><div><p class="eyebrow">NEW ALERT</p><h2>設定提醒</h2></div><button class="icon-button" value="cancel" aria-label="關閉">×</button></div>
+      <label>股票<select name="code" data-alert-stock required></select></label>
+      <label>提醒類型<select name="kind"><option value="price">價格門檻</option><option value="probability">機率門檻</option><option value="technical">技術條件</option></select></label>
+      <label>條件值<input name="value" placeholder="例如 120、65 或 多頭" required></label>
+      <p class="form-hint">提醒儲存在此裝置；開啟 Dashboard 時會重新檢查。</p>
+      <button class="button primary" value="default">儲存提醒</button>
+    </form>
+  </dialog>
+  <div class="toast" data-toast hidden role="status"></div>
   <script src="{{ url_for('static', filename='app.js') }}" defer></script>
   {% block scripts %}{% endblock %}
 </body>
