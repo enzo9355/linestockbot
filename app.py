@@ -948,12 +948,12 @@ def stock_page(code):
     if code not in twstock.codes:
         abort(404)
     d = analyze(code)
-    return render_web(d) if d else "查無資料"
+    return render_template("stock_detail.html", d=d) if d else "查無資料"
 
 @app.route("/market")
 def market_page():
     d = analyze("TAIEX")
-    return render_web(d) if d else "資料更新中"
+    return render_template("stock_detail.html", d=d) if d else "資料更新中"
 
 @app.route("/callback", methods=["POST"])
 def callback():

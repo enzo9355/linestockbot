@@ -9,6 +9,22 @@ os.environ.setdefault("LINE_CHANNEL_SECRET", "test")
 import app as stock_app
 
 
+def analysis_data():
+    return {
+        "name": "台積電", "code": "2330", "price": 100.0, "prob": 63,
+        "trend": "多頭", "rsi": 58.0, "ma20": 98.0, "macd_osc": 0.3,
+        "k": 62.0, "d": 54.0, "s_score": 55.0, "s_status": "中性",
+        "candles": "[]", "ma20_line": "[]", "prob_h": "[]", "pred": "[]",
+        "news": [],
+        "bt": {
+            "days": 100, "accuracy": 54.0, "brier": 0.23,
+            "strat_cum": 8.0, "bh_cum": 5.0, "win_rate": 57.0,
+            "trades": 7, "mdd": -6.0, "sharpe": 1.1,
+            "conclusion": "風險調整後表現尚可", "top_features": ["成交量", "RSI", "法人"],
+        },
+    }
+
+
 class WebProductTests(unittest.TestCase):
     def test_dashboard_page_is_a_fast_decision_shell(self):
         with patch.object(stock_app, "analyze") as analyze:
@@ -41,6 +57,18 @@ class WebProductTests(unittest.TestCase):
         self.assertEqual(payload["market"]["price"], 23150.0)
         self.assertEqual([item["code"] for item in payload["opportunities"]], ["2330", "2317"])
         self.assertGreater(len(payload["sectors"]), 3)
+
+    @patch.object(stock_app, "analyze", return_value=analysis_data())
+    def test_stock_page_is_the_core_analysis_workspace(self, _analyze):
+        response = stock_app.app.test_client().get("/stock/2330")
+
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        for label in ["五日上漲機率", "加入關注", "設定提醒", "技術指標", "模型解釋", "風險提醒"]:
+            self.assertIn(label, html)
+        self.assertIn("data-chart-range", html)
+        self.assertIn("<details", html)
+        self.assertIn("/static/app.css", html)
 
 
 if __name__ == "__main__":

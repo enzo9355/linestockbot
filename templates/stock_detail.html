@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{{ d.name }}（{{ d.code }}）｜量化觀測站{% endblock %}
+{% block head %}<script src="https://unpkg.com/lightweight-charts@4.2.2/dist/lightweight-charts.standalone.production.js"></script>{% endblock %}
+{% block content %}
+<div class="page stock-page" data-stock-code="{{ d.code }}" data-stock-name="{{ d.name }}" data-stock-price="{{ '%.2f'|format(d.price) }}" data-stock-prob="{{ d.prob }}">
+  <header class="stock-header">
+    <div><a class="back-link" href="{{ url_for('dashboard_page') }}">← 返回總覽</a><p class="eyebrow">{{ d.code }}</p><h1>{{ d.name }}</h1><p class="muted">最新收盤 {{ '%.2f'|format(d.price) }} · {{ d.trend }}</p></div>
+    <div class="stock-actions"><button class="button secondary" data-watchlist-add>＋ 加入關注</button><button class="button primary" data-alert-open>設定提醒</button></div>
+  </header>
+
+  <section class="decision-strip" aria-label="預測摘要">
+    <article class="confidence-card"><span>五日上漲機率</span><strong>{{ d.prob }}%</strong><div class="confidence-track"><i style="width:{{ d.prob }}%"></i></div><small>模型機率，不代表保證獲利</small></article>
+    <article><span>技術趨勢</span><strong class="{{ 'positive' if d.trend == '多頭' else 'negative' }}">{{ d.trend }}</strong><small>股價{{ '站上' if d.price > d.ma20 else '跌破' }}月均線</small></article>
+    <article><span>方向準確率</span><strong>{{ '%.1f'|format(d.bt.accuracy) }}%</strong><small>Out-of-Sample，近 {{ d.bt.days }} 日</small></article>
+    <article><span>風險效率</span><strong>{{ '%.2f'|format(d.bt.sharpe) }}</strong><small>Sharpe Ratio</small></article>
+  </section>
+
+  <section class="panel chart-panel">
+    <div class="section-heading"><div><p class="eyebrow">PRICE & FORECAST</p><h2>價格與預測軌跡</h2></div><div class="segmented"><button data-chart-range="30">1月</button><button class="active" data-chart-range="90">3月</button><button data-chart-range="260">1年</button></div></div>
+    <div id="stock-chart" class="stock-chart" aria-label="{{ d.name }}互動式價格圖"></div>
+  </section>
+
+  <div class="analysis-grid">
+    <section class="panel">
+      <div class="section-heading"><div><p class="eyebrow">TECHNICALS</p><h2>技術指標</h2></div></div>
+      <div class="indicator-grid">
+        <article><span>RSI 強弱</span><strong>{{ '%.1f'|format(d.rsi) }}</strong><small>{{ '偏強' if d.rsi >= 55 else '偏弱' if d.rsi < 45 else '中性' }}</small></article>
+        <article><span>MACD 動能</span><strong>{{ '紅柱' if d.macd_osc > 0 else '綠柱' }}</strong><small>{{ '多方動能' if d.macd_osc > 0 else '空方動能' }}</small></article>
+        <article><span>KD 訊號</span><strong>{{ '黃金交叉' if d.k > d.d else '死亡交叉' }}</strong><small>K {{ '%.1f'|format(d.k) }} · D {{ '%.1f'|format(d.d) }}</small></article>
+        <article><span>新聞情緒</span><strong>{{ '%.0f'|format(d.s_score) }}</strong><small>{{ d.s_status }}</small></article>
+      </div>
+    </section>
+
+    <section class="panel explain-panel">
+      <div class="section-heading"><div><p class="eyebrow">EXPLAINABILITY</p><h2>模型解釋</h2></div></div>
+      <details open><summary>為什麼出現這個訊號？</summary><ol class="feature-list">{% for feature in d.bt.top_features %}<li>{{ feature }}</li>{% endfor %}</ol></details>
+      <details><summary>回測結果怎麼看？</summary><p>策略報酬 {{ '%.2f'|format(d.bt.strat_cum) }}%，買進持有 {{ '%.2f'|format(d.bt.bh_cum) }}%；最大回檔 {{ '%.2f'|format(d.bt.mdd) }}%。</p></details>
+      <details><summary>Brier Score 是什麼？</summary><p>{{ '%.3f'|format(d.bt.brier) }}。數值越低代表歷史機率校準越好，仍不代表未來必然重現。</p></details>
+    </section>
+  </div>
+
+  <section class="panel risk-panel"><div><p class="eyebrow">RISK CHECK</p><h2>風險提醒</h2></div><p>{{ d.bt.conclusion }}</p><ul><li>預測期間為五個交易日，短線波動可能偏離模型。</li><li>交易成本與突發事件可能降低實際績效。</li><li>請搭配部位控管，不要只依單一機率下單。</li></ul></section>
+
+  <section class="panel"><div class="section-heading"><div><p class="eyebrow">NEWS</p><h2>近期新聞</h2></div><span class="muted small">情緒僅供輔助，不修改模型機率</span></div><div class="news-list">{% for item in d.news %}<a href="{{ item.link }}" target="_blank" rel="noopener noreferrer">{{ item.title }}</a>{% else %}<div class="empty-state">目前沒有相關新聞</div>{% endfor %}</div></section>
+
+  <script id="stock-chart-data" type="application/json">{{ {"candles": d.candles, "ma20": d.ma20_line, "prediction": d.pred}|tojson }}</script>
+</div>
+{% endblock %}
