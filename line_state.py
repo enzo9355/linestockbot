@@ -250,7 +250,7 @@ def _is_finite_number(value):
 
 
 def _is_valid_alert_value(kind, value):
-    if kind == "price":
+    if kind in {"price", "price_above", "price_below"}:
         return _is_finite_number(value) and value > 0
     if kind == "probability":
         return _is_finite_number(value) and 1 <= value <= 99
@@ -314,7 +314,7 @@ def normalize_state(value):
                 not isinstance(item, dict)
                 or not _is_nonempty_string(item.get("id"))
                 or not _is_valid_stock(item.get("code"), item.get("name"))
-                or item.get("kind") not in {"price", "probability", "trend"}
+                or item.get("kind") not in {"price", "price_above", "price_below", "probability", "trend"}
                 or not _is_valid_alert_value(item["kind"], item.get("value"))
                 or not isinstance(item.get("enabled"), bool)
                 or not _is_optional_iso_date(item.get("last_triggered_date"))
@@ -338,7 +338,7 @@ def normalize_state(value):
     if (
         isinstance(pending, dict)
         and _is_valid_stock(pending.get("code"), pending.get("name"))
-        and pending.get("kind") in {"price", "probability"}
+        and pending.get("kind") in {"price", "price_above", "price_below", "probability"}
         and _is_finite_number(pending.get("expires_at"))
     ):
         state["pending"] = {
@@ -404,7 +404,7 @@ def remove_watch(state, code):
 
 def start_pending(state, code, name, kind, now=None):
     _validate_stock(code, name)
-    if kind not in {"price", "probability"}:
+    if kind not in {"price", "price_above", "price_below", "probability"}:
         raise StateError("不支援的提醒類型")
 
     started_at = time.time() if now is None else now
@@ -419,7 +419,7 @@ def start_pending(state, code, name, kind, now=None):
 
 def add_alert(state, code, name, kind, value):
     _validate_stock(code, name)
-    if kind not in {"price", "probability", "trend"}:
+    if kind not in {"price", "price_above", "price_below", "probability", "trend"}:
         raise StateError("不支援的提醒類型")
     if not _is_valid_alert_value(kind, value):
         raise StateError("提醒條件格式錯誤")
@@ -452,7 +452,7 @@ def consume_pending(state, text, now=None):
         raise StateError("請輸入有效數字") from error
     if not math.isfinite(value):
         raise StateError("請輸入有效數字")
-    if pending["kind"] == "price" and value <= 0:
+    if pending["kind"] in {"price", "price_above", "price_below"} and value <= 0:
         raise StateError("價格必須大於 0")
     if pending["kind"] == "probability" and not 1 <= value <= 99:
         raise StateError("機率必須介於 1 到 99")
@@ -469,8 +469,10 @@ def consume_pending(state, text, now=None):
 
 
 def evaluate_alert(alert, quote):
-    if alert["kind"] == "price":
+    if alert["kind"] in {"price", "price_above"}:
         return quote["price"] >= float(alert["value"])
+    if alert["kind"] == "price_below":
+        return quote["price"] <= float(alert["value"])
     if alert["kind"] == "probability":
         return quote["prob"] >= float(alert["value"])
     return alert["kind"] == "trend" and quote["trend"] == alert["value"]

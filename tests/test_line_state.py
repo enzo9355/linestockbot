@@ -547,6 +547,10 @@ class LineStateTests(unittest.TestCase):
 
         self.assertTrue(evaluate_alert({"kind": "price", "value": 990}, quote))
         self.assertFalse(evaluate_alert({"kind": "price", "value": 1001}, quote))
+        self.assertTrue(evaluate_alert({"kind": "price_above", "value": 990}, quote))
+        self.assertFalse(evaluate_alert({"kind": "price_above", "value": 1001}, quote))
+        self.assertTrue(evaluate_alert({"kind": "price_below", "value": 1001}, quote))
+        self.assertFalse(evaluate_alert({"kind": "price_below", "value": 990}, quote))
         self.assertTrue(evaluate_alert({"kind": "probability", "value": 65}, quote))
         self.assertFalse(evaluate_alert({"kind": "probability", "value": 69}, quote))
         self.assertTrue(evaluate_alert({"kind": "trend", "value": "多頭"}, quote))

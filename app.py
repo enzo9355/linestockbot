@@ -1114,10 +1114,12 @@ def build_watchlist_flex(state, base_url):
 
 
 def _alert_condition_text(alert):
-    if alert["kind"] == "price":
-        return f"股價達到 {float(alert['value']):g}"
+    if alert["kind"] in {"price", "price_above"}:
+        return f"收盤價站上 {float(alert['value']):g}"
+    if alert["kind"] == "price_below":
+        return f"收盤價跌破 {float(alert['value']):g}"
     if alert["kind"] == "probability":
-        return f"五日上漲機率達到 {float(alert['value']):g}%"
+        return f"AI 勝率達到 {float(alert['value']):g}%"
     return f"趨勢為{alert['value']}"
 
 
@@ -1151,8 +1153,9 @@ def build_alerts_flex(state):
 
 def build_alert_menu_flex(code, name):
     choices = [
-        ("收盤價門檻", f"alert:start:{code}:price"),
-        ("機率門檻", f"alert:start:{code}:probability"),
+        ("站上收盤價", f"alert:start:{code}:price_above"),
+        ("跌破收盤價", f"alert:start:{code}:price_below"),
+        ("AI 勝率門檻", f"alert:start:{code}:probability"),
         ("趨勢為多頭", f"alert:trend:{code}:多頭"),
         ("趨勢為空頭", f"alert:trend:{code}:空頭"),
     ]
@@ -1266,12 +1269,15 @@ def build_alert_push_flex(hits, base_url):
 
     def bubble(hit):
         alert, quote = hit["alert"], hit["quote"]
-        if alert["kind"] == "price":
-            condition = f"條件：股價達到 {float(alert['value']):g}"
-            current = f"目前股價：{quote['price']:.2f}"
+        if alert["kind"] in {"price", "price_above"}:
+            condition = f"條件：收盤價站上 {float(alert['value']):g}"
+            current = f"今日收盤價：{quote['price']:.2f}"
+        elif alert["kind"] == "price_below":
+            condition = f"條件：收盤價跌破 {float(alert['value']):g}"
+            current = f"今日收盤價：{quote['price']:.2f}"
         elif alert["kind"] == "probability":
-            condition = f"條件：五日上漲機率達到 {float(alert['value']):g}%"
-            current = f"目前機率：{quote['prob']}%"
+            condition = f"條件：AI 勝率達到 {float(alert['value']):g}%"
+            current = f"目前 AI 勝率：{quote['prob']}%"
         else:
             condition = f"條件：趨勢為{alert['value']}"
             current = f"目前趨勢：{quote['trend']}"
@@ -1827,7 +1833,10 @@ def _find_matching_alert(alerts, code, kind, value):
         (
             alert for alert in alerts
             if alert.get("code") == code
-            and alert.get("kind") == kind
+            and (
+                alert.get("kind") == kind
+                or {alert.get("kind"), kind} <= {"price", "price_above"}
+            )
             and alert.get("value") == value
         ),
         None,
@@ -1856,7 +1865,7 @@ def handle_postback(event):
     stock_match = re.fullmatch(r"(?:watch:(?:add|remove)|alert:menu|calc:menu|calc:custom):([A-Za-z0-9]+)", payload)
     calc_amount_match = re.fullmatch(r"calc:amount:([A-Za-z0-9]+):([0-9]+(?:\.[0-9]+)?)", payload)
     alert_start_match = re.fullmatch(
-        r"alert:start:([A-Za-z0-9]+):(price|probability)",
+        r"alert:start:([A-Za-z0-9]+):(price|price_above|price_below|probability)",
         payload,
     )
     alert_trend_match = re.fullmatch(
@@ -1944,7 +1953,11 @@ def handle_postback(event):
                 start_pending(state, code, name, kind)
 
             update_line_state(user_id, begin_alert)
-            label = "收盤價" if kind == "price" else "五日上漲機率（1 到 99）"
+            label = {
+                "price": "收盤價站上",
+                "price_above": "收盤價站上",
+                "price_below": "收盤價跌破",
+            }.get(kind, "AI 勝率（1 到 99）")
             reply = f"請輸入 {name} 的{label}門檻數字，或輸入「取消」。"
         elif alert_trend_match:
             trend = alert_trend_match.group(2)
@@ -2033,7 +2046,11 @@ def handle_message(event):
                     _reply_text(event, "提醒設定已逾時，請重新設定。")
                 else:
                     alert = outcome["alert"]
-                    label = "收盤價" if alert["kind"] == "price" else "五日上漲機率"
+                    label = {
+                        "price": "收盤價站上",
+                        "price_above": "收盤價站上",
+                        "price_below": "收盤價跌破",
+                    }.get(alert["kind"], "AI 勝率")
                     reply = (
                         f"已建立 {alert['name']} 的{label}提醒。"
                         if outcome["created"]

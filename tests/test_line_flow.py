@@ -280,18 +280,22 @@ class LineBuilderTests(unittest.TestCase):
         self.assertEqual(actions[2]["uri"], "https://example.com/stock/1000")
         self.assertNotIn("/watchlist", str(message))
 
-    def test_alert_menu_has_four_strict_postbacks(self):
+    def test_alert_menu_uses_explicit_closing_price_directions(self):
         card = stock_app.build_alert_menu_flex("2330", "台積電")
         actions = [item["action"] for item in card["body"]["contents"] if item["type"] == "button"]
 
         self.assertEqual([action["data"] for action in actions], [
-            "alert:start:2330:price",
+            "alert:start:2330:price_above",
+            "alert:start:2330:price_below",
             "alert:start:2330:probability",
             "alert:trend:2330:多頭",
             "alert:trend:2330:空頭",
         ])
         self.assertTrue(all(action["type"] == "postback" for action in actions))
-        self.assertEqual([action["label"] for action in actions[2:]], ["趨勢為多頭", "趨勢為空頭"])
+        self.assertEqual(
+            [action["label"] for action in actions],
+            ["站上收盤價", "跌破收盤價", "AI 勝率門檻", "趨勢為多頭", "趨勢為空頭"],
+        )
         self.assertNotIn("趨勢轉", str(card))
 
     def test_alert_management_flex_lists_cancel_buttons(self):
@@ -307,7 +311,7 @@ class LineBuilderTests(unittest.TestCase):
         action = message["contents"][0]["footer"]["contents"][0]["action"]
 
         self.assertIn("提醒管理", str(message))
-        self.assertIn("股價達到 900", str(message))
+        self.assertIn("收盤價站上 900", str(message))
         self.assertEqual(action, {
             "type": "postback",
             "label": "取消提醒",
@@ -364,10 +368,10 @@ class PostbackTests(unittest.TestCase):
         self.assertEqual(store.state["watchlist"], [])
 
     def test_alert_start_adds_watch_and_pending(self):
-        store, _ = self.call("alert:start:2330:probability")
+        store, _ = self.call("alert:start:2330:price_below")
 
         self.assertEqual(store.state["watchlist"][0]["code"], "2330")
-        self.assertEqual(store.state["pending"]["kind"], "probability")
+        self.assertEqual(store.state["pending"]["kind"], "price_below")
 
     def test_alert_trend_adds_watch_and_alert(self):
         store, line_api = self.call("alert:trend:2330:空頭")
@@ -1023,7 +1027,7 @@ class ScheduledAlertTests(unittest.TestCase):
             self.assertEqual(len(buttons), 1)
             self.assertEqual(buttons[0]["action"]["type"], "uri")
             self.assertEqual(buttons[0]["action"]["uri"], "https://example.com/stock/2330")
-            self.assertIn("目前", str(bubble))
+            self.assertIn("條件", str(bubble))
             self.assertNotIn("轉為", str(bubble))
 
     def test_more_than_twelve_hits_use_one_push_with_legal_carousels(self):
