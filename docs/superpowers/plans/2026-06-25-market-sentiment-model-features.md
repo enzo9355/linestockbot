@@ -128,9 +128,9 @@ def _market_feature_frame(market, prefix):
 def add_market_context_features(price, market=None, etf50=None):
     if price is None or price.empty:
         return price
-    result = _neutral_market_features(price)
+    result = price.copy()
     if "Date" not in result:
-        return result
+        return _neutral_market_features(result)
     result["Date"] = pd.to_datetime(result["Date"], errors="coerce")
     market_frame = _market_feature_frame(market, "MARKET")
     if not market_frame.empty:
@@ -623,4 +623,3 @@ Invoke-WebRequest -Uri 'https://line-stock-bot-1067991373149.asia-east1.run.app/
 ```
 
 Expected: traffic is `100`; HTTP status is `200`.
-
