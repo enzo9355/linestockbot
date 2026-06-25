@@ -2614,7 +2614,7 @@ def handle_message(event):
             )
             flex_content = build_stock_flex_message(code, name, data, url, watched=watched)
             line_bot_api.reply_message(event.reply_token, FlexSendMessage(alt_text=f"📊 {name} ({code}) 預測出爐，點擊查看！", contents=flex_content))
-        else:
+        elif getattr(getattr(event, "source", None), "type", "user") == "user":
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text="請輸入股票代碼，或輸入：今日盤勢 / 我的關注 / 提醒管理 / 完整分析"))
 
 if __name__ == "__main__":
