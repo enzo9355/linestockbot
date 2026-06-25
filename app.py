@@ -59,7 +59,7 @@ line_store = FirestoreStore(GCP_PROJECT_ID) if GCP_PROJECT_ID else None
 
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    gemini_model = genai.GenerativeModel('gemini-2.0-flash')
+    gemini_model = genai.GenerativeModel('gemini-2.5-flash')
 else:
     gemini_model = None
 
