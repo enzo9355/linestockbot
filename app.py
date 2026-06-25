@@ -1128,7 +1128,7 @@ Papi 源自西班牙文，意思是「老爸」。你的人設是一位資深投
     summary = (getattr(response, "text", "") or "").strip()
     if not summary:
         return None
-    return f"Papi 分析\n{summary}"
+    return summary
 
 
 def sector_signal_score(data):
