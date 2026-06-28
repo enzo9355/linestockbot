@@ -37,22 +37,51 @@ def analysis_data():
 
 
 class WebProductTests(unittest.TestCase):
-    def test_dashboard_page_is_a_fast_decision_shell(self):
+    def test_base_shell_uses_stock_papi_brand_and_light_theme(self):
+        response = stock_app.app.test_client().get("/dashboard")
+        html = response.get_data(as_text=True)
+        css = Path(stock_app.app.static_folder, "app.css").read_text(encoding="utf-8")
+
+        self.assertIn("Stock Papi", html)
+        self.assertIn("市場首頁", html)
+        self.assertIn("Lora", html)
+        self.assertIn("GenWanMin", css)
+        self.assertIn("--bg:#f6efe6", css)
+        self.assertIn(".glass-panel", css)
+        self.assertNotIn("量化觀測站", html)
+
+    def test_dashboard_page_is_the_stock_papi_landing_page(self):
         with patch.object(stock_app, "analyze") as analyze:
             response = stock_app.app.test_client().get("/dashboard")
 
         self.assertEqual(response.status_code, 200)
         analyze.assert_not_called()
         html = response.get_data(as_text=True)
-        for label in ["市場摘要", "強勢訊號", "產業雷達"]:
+        for label in ["市場摘要", "產業預測", "精選標的", "新手投資小辭典", "LINE 管理關注"]:
             self.assertIn(label, html)
-        for web_only_removed in ["我的關注", "最近提醒", "data-watchlist", "data-alert-preview", "/watchlist"]:
+        self.assertNotIn("強勢訊號", html)
+        for web_only_removed in ["我的關注", "最近提醒", "data-alert-preview", "/watchlist"]:
             self.assertNotIn(web_only_removed, html)
         self.assertIn('data-dashboard-endpoint="/api/dashboard"', html)
+        self.assertIn('data-top-picks', html)
+        self.assertIn('data-watchlist-strip', html)
 
     @patch.object(stock_app, "analyze")
-    def test_dashboard_api_returns_market_and_cached_signals(self, analyze):
+    @patch.object(stock_app, "load_sector_signal_snapshot")
+    def test_dashboard_api_returns_sector_cards_and_top_picks(self, load_snapshot, analyze):
         analyze.return_value = {"price": 23150.0, "prob": 58, "trend": "多頭"}
+        load_snapshot.return_value = {
+            "sectors": {
+                "半導體": [{
+                    "code": "2330", "name": "台積電", "prob": 72,
+                    "trend": "多頭", "score": 91.2, "as_of": "2026-06-28", "foreign_net_5": 12000,
+                }],
+                "AI 伺服器": [{
+                    "code": "6669", "name": "緯穎", "prob": 69,
+                    "trend": "多頭", "score": 88.5, "as_of": "2026-06-28", "foreign_net_5": 5400,
+                }],
+            }
+        }
         previous = stock_app._SYSTEM_CACHE.copy()
         self.addCleanup(stock_app._SYSTEM_CACHE.update, previous)
         self.addCleanup(stock_app._SYSTEM_CACHE.clear)
@@ -69,7 +98,10 @@ class WebProductTests(unittest.TestCase):
         payload = response.get_json()
         self.assertEqual(payload["market"]["price"], 23150.0)
         self.assertEqual([item["code"] for item in payload["opportunities"]], ["2330", "2317"])
-        self.assertGreater(len(payload["sectors"]), 3)
+        self.assertEqual(payload["sector_cards"][0]["name"], "半導體")
+        self.assertEqual(payload["sector_cards"][0]["leader"]["code"], "2330")
+        self.assertEqual(len(payload["top_picks"]), 2)
+        self.assertEqual(payload["watchlist_hint"]["title"], "關注與提醒在 LINE 管理")
 
     @patch.object(stock_app, "analyze", return_value=analysis_data())
     def test_stock_page_is_the_core_analysis_workspace(self, _analyze):
@@ -77,7 +109,7 @@ class WebProductTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
-        for label in ["五日上漲機率", "技術指標", "模型解釋", "風險提醒"]:
+        for label in ["五日上漲機率", "技術指標", "新手解讀", "風險提醒"]:
             self.assertIn(label, html)
         for label in ["投資金額試算", "外資買賣超", "約可買股數", "外資偏多"]:
             self.assertIn(label, html)
@@ -86,6 +118,16 @@ class WebProductTests(unittest.TestCase):
         self.assertIn("data-chart-range", html)
         self.assertIn("<details", html)
         self.assertIn("/static/app.css", html)
+
+    @patch.object(stock_app, "analyze", return_value=analysis_data())
+    def test_stock_page_uses_summary_chart_news_first_flow(self, _analyze):
+        response = stock_app.app.test_client().get("/stock/2330")
+        html = response.get_data(as_text=True)
+
+        for label in ["預測摘要", "價格與預測軌跡", "近期新聞", "新手解讀"]:
+            self.assertIn(label, html)
+        self.assertIn("glass-segmented", html)
+        self.assertIn("chart-shell", html)
 
     def test_web_is_analysis_only_and_old_watchlist_redirects(self):
         client = stock_app.app.test_client()
@@ -138,10 +180,10 @@ class WebProductTests(unittest.TestCase):
             self.assertNotIn(old_label, svg)
         for emoji in ["📈", "⭐", "🏭", "🔔", "🧮", "📊"]:
             self.assertNotIn(emoji, svg)
-        self.assertIn('font:800 140px', svg)
-        self.assertEqual(svg.count('class="label" x="0" y="300"'), 6)
-        self.assertEqual(svg.count('class="hint" x="0" y="500"'), 6)
-        self.assertNotIn('y="376"', svg)
+        for marker in ["STOCK PAPI", "#f6efe6", "#7fd7c4", "#f4b58a", "#b8a6ea"]:
+            self.assertIn(marker, svg)
+        self.assertIn('font:800 132px', svg)
+        self.assertIn('font:700 48px', svg)
 
     def test_line_summary_card_has_one_clear_cta(self):
         card = stock_app.build_line_summary_card(
@@ -168,7 +210,7 @@ class WebProductTests(unittest.TestCase):
     def test_browser_bundle_has_no_local_watchlist_storage(self):
         source = Path(stock_app.app.static_folder, "app.js").read_text(encoding="utf-8")
 
-        for removed in ["localStorage", "quant-watchlist", "data-watchlist", "data-alert-open", "data-alert-form"]:
+        for removed in ["localStorage", "quant-watchlist", "data-alert-open", "data-alert-form"]:
             self.assertNotIn(removed, source)
         self.assertIn("initReturnCalculator", source)
 
@@ -176,8 +218,11 @@ class WebProductTests(unittest.TestCase):
         css = Path(stock_app.app.static_folder, "app.css").read_text(encoding="utf-8")
         js = Path(stock_app.app.static_folder, "app.js").read_text(encoding="utf-8")
 
-        self.assertIn(".chart-panel{margin-bottom:16px;overflow:hidden}", css)
-        self.assertIn(".stock-chart{width:100%;max-width:100%;height:430px", css)
+        self.assertIn(".chart-shell{overflow:hidden", css)
+        self.assertIn(".stock-chart{", css)
+        self.assertIn("min-height:320px", css)
+        self.assertIn("function measureChartHeight", js)
+        self.assertIn("Math.min(460", js)
         self.assertIn("ResizeObserver", js)
 
 

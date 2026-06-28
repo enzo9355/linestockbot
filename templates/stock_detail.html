@@ -1,21 +1,25 @@
 {% extends "base.html" %}
-{% block title %}{{ d.name }}（{{ d.code }}）｜量化觀測站{% endblock %}
+{% block title %}{{ d.name }}（{{ d.code }}）｜Stock Papi{% endblock %}
 {% block head %}<script src="https://unpkg.com/lightweight-charts@4.2.2/dist/lightweight-charts.standalone.production.js"></script>{% endblock %}
 {% block content %}
 <div class="page stock-page" data-stock-code="{{ d.code }}" data-stock-name="{{ d.name }}" data-stock-price="{{ '%.2f'|format(d.price) }}" data-stock-prob="{{ d.prob }}">
-  <header class="stock-header">
-    <div><a class="back-link" href="{{ url_for('dashboard_page') }}">← 返回總覽</a><p class="eyebrow">{{ d.code }}</p><h1>{{ d.name }}</h1><p class="muted">最新收盤 {{ '%.2f'|format(d.price) }} · {{ d.trend }}</p></div>
+  <header class="stock-hero">
+    <div class="hero-copy">
+      <a class="back-link" href="{{ url_for('dashboard_page') }}">返回市場首頁</a>
+      <p class="eyebrow">{{ d.code }}</p>
+      <h1>{{ d.name }}</h1>
+      <p class="muted">最新收盤 {{ '%.2f'|format(d.price) }} · {{ d.trend }}。先看結論，再往下看圖表與新聞。</p>
+    </div>
+    <section class="summary-strip glass-panel" aria-label="預測摘要">
+      <article class="summary-card confidence-card"><span>五日上漲機率</span><strong>{{ d.prob }}%</strong><div class="confidence-track"><i style="width:{{ d.prob }}%"></i></div><small>模型機率，不代表保證獲利</small></article>
+      <article class="summary-card"><span>技術趨勢</span><strong class="{{ 'positive' if d.trend == '多頭' else 'negative' }}">{{ d.trend }}</strong><small>股價{{ '站上' if d.price > d.ma20 else '跌破' }}月均線</small></article>
+      <article class="summary-card"><span>方向準確率</span><strong>{{ '%.1f'|format(d.bt.accuracy) }}%</strong><small>Out-of-Sample，近 {{ d.bt.days }} 日</small></article>
+      <article class="summary-card"><span>風險效率</span><strong>{{ '%.2f'|format(d.bt.sharpe) }}</strong><small>Sharpe Ratio</small></article>
+    </section>
   </header>
 
-  <section class="decision-strip" aria-label="預測摘要">
-    <article class="confidence-card"><span>五日上漲機率</span><strong>{{ d.prob }}%</strong><div class="confidence-track"><i style="width:{{ d.prob }}%"></i></div><small>模型機率，不代表保證獲利</small></article>
-    <article><span>技術趨勢</span><strong class="{{ 'positive' if d.trend == '多頭' else 'negative' }}">{{ d.trend }}</strong><small>股價{{ '站上' if d.price > d.ma20 else '跌破' }}月均線</small></article>
-    <article><span>方向準確率</span><strong>{{ '%.1f'|format(d.bt.accuracy) }}%</strong><small>Out-of-Sample，近 {{ d.bt.days }} 日</small></article>
-    <article><span>風險效率</span><strong>{{ '%.2f'|format(d.bt.sharpe) }}</strong><small>Sharpe Ratio</small></article>
-  </section>
-
-  <section class="panel chart-panel">
-    <div class="section-heading"><div><p class="eyebrow">PRICE & FORECAST</p><h2>價格與預測軌跡</h2></div><div class="segmented" aria-label="圖表顯示期間"><button type="button" data-chart-range="30" aria-pressed="false">1月</button><button type="button" class="active" data-chart-range="90" aria-pressed="true">3月</button><button type="button" data-chart-range="260" aria-pressed="false">1年</button></div></div>
+  <section class="panel chart-shell">
+    <div class="section-heading"><div><p class="eyebrow">PRICE & FORECAST</p><h2>價格與預測軌跡</h2></div><div class="segmented glass-segmented" aria-label="圖表顯示期間"><button type="button" data-chart-range="30" aria-pressed="false">1月</button><button type="button" class="active" data-chart-range="90" aria-pressed="true">3月</button><button type="button" data-chart-range="260" aria-pressed="false">1年</button></div></div>
     <div id="stock-chart" class="stock-chart" aria-label="{{ d.name }}互動式價格圖"></div>
   </section>
 
@@ -55,7 +59,7 @@
     </section>
 
     <section class="panel explain-panel">
-      <div class="section-heading"><div><p class="eyebrow">EXPLAINABILITY</p><h2>模型解釋</h2></div></div>
+      <div class="section-heading"><div><p class="eyebrow">GUIDE</p><h2>新手解讀</h2></div></div>
       <details open><summary>為什麼出現這個訊號？</summary><ol class="feature-list">{% for feature in d.bt.top_features %}<li>{{ feature }}</li>{% endfor %}</ol></details>
       <details><summary>回測結果怎麼看？</summary><p>策略報酬 {{ '%.2f'|format(d.bt.strat_cum) }}%，買進持有 {{ '%.2f'|format(d.bt.bh_cum) }}%；最大回檔 {{ '%.2f'|format(d.bt.mdd) }}%。</p></details>
       <details><summary>Brier Score 是什麼？</summary><p>{{ '%.3f'|format(d.bt.brier) }}。數值越低代表歷史機率校準越好，仍不代表未來必然重現。</p></details>

@@ -945,6 +945,60 @@ def cached_opportunities(limit=5):
             items.append({"code": code, "name": data["name"], "prob": data["prob"]})
     return sorted(items, key=lambda item: item["prob"], reverse=True)[:limit]
 
+def dashboard_sector_cards(limit=6):
+    try:
+        snapshot = load_sector_signal_snapshot(line_store)
+    except Exception:
+        snapshot = {}
+    cards = []
+    for name, items in (snapshot or {}).get("sectors", {}).items():
+        if not items:
+            continue
+        leader = items[0]
+        cards.append({
+            "name": name,
+            "count": len(items),
+            "score": round(_safe_float(leader.get("score")), 1),
+            "leader": {
+                "code": str(leader.get("code") or ""),
+                "name": str(leader.get("name") or ""),
+                "prob": int(_safe_float(leader.get("prob"))),
+                "trend": str(leader.get("trend") or "中性"),
+                "foreign_net_5": int(_safe_float(leader.get("foreign_net_5"))),
+                "as_of": str(leader.get("as_of") or ""),
+            },
+        })
+    if cards:
+        return sorted(cards, key=lambda item: item["score"], reverse=True)[:limit]
+    fallback = []
+    for item in cached_opportunities(limit):
+        fallback.append({
+            "name": "熱門觀察",
+            "count": 1,
+            "score": float(item["prob"]),
+            "leader": {
+                "code": item["code"],
+                "name": item["name"],
+                "prob": int(item["prob"]),
+                "trend": "等待更新",
+                "foreign_net_5": 0,
+                "as_of": "",
+            },
+        })
+    return fallback
+
+def dashboard_top_picks(cards, limit=3):
+    picks = []
+    for card in cards[:limit]:
+        leader = card["leader"]
+        picks.append({
+            "code": leader["code"],
+            "name": leader["name"],
+            "headline": f"{card['name']}優先觀察",
+            "summary": f"AI 勝率 {leader['prob']}%・{leader['trend']}・外資5日 {leader['foreign_net_5']:,}",
+        })
+    return picks
+
 def market_forecast(): return analyze("TAIEX")
 
 # ==================================================
@@ -2154,12 +2208,12 @@ def build_line_navigation_flex(base_url):
     """Rich Menu 入口的可預覽 Flex 版本。"""
     root = base_url.rstrip("/")
     entries = [
-        ("看大盤", "今天台股強不強", "查看盤勢", {"type": "uri", "label": "查看盤勢", "uri": f"{root}/market"}),
-        ("找機會", "產業排行與熱門題材", "選擇產業", {"type": "message", "label": "選擇產業", "text": "預測"}),
+        ("看大盤", "今天盤面偏強還是偏弱", "查看盤勢", {"type": "uri", "label": "查看盤勢", "uri": f"{root}/market"}),
+        ("找機會", "產業預測與熱門題材", "選擇產業", {"type": "message", "label": "選擇產業", "text": "預測"}),
         ("查自選", "自選股票清單", "開啟關注", {"type": "message", "label": "開啟關注", "text": "我的關注"}),
-        ("設提醒", "漲跌、機率、趨勢通知", "管理提醒", {"type": "message", "label": "管理提醒", "text": "提醒管理"}),
+        ("設提醒", "收盤與趨勢通知", "管理提醒", {"type": "message", "label": "管理提醒", "text": "提醒管理"}),
         ("算報酬", "投入金額試算", "開始試算", {"type": "message", "label": "開始試算", "text": "投資試算"}),
-        ("深度分析", "K線、回測、新聞", "開啟分析", {"type": "uri", "label": "開啟分析", "uri": f"{root}/dashboard"}),
+        ("深度分析", "圖表、回測、新聞", "開啟分析", {"type": "uri", "label": "開啟分析", "uri": f"{root}/dashboard"}),
     ]
     return {
         "type": "carousel",
@@ -2390,6 +2444,7 @@ def dashboard_api():
     market = analyze("TAIEX")
     if not market:
         return jsonify({"error": "market data unavailable"}), 503
+    sector_cards = dashboard_sector_cards()
     sectors = [
         {"name": name, "count": len(codes)}
         for name, codes in list(industry_map.items())[:8]
@@ -2401,6 +2456,12 @@ def dashboard_api():
             "trend": market["trend"],
         },
         "opportunities": cached_opportunities(),
+        "sector_cards": sector_cards,
+        "top_picks": dashboard_top_picks(sector_cards),
+        "watchlist_hint": {
+            "title": "關注與提醒在 LINE 管理",
+            "steps": ["在 LINE 查詢個股", "點選加入關注", "從提醒管理設定通知"],
+        },
         "sectors": sectors,
     })
 
@@ -2832,7 +2893,7 @@ def handle_message(event):
         line_bot_api.reply_message(event.reply_token, FlexSendMessage(alt_text="投資試算", contents=build_calculator_help_flex()))
 
     elif msg == "功能選單":
-        line_bot_api.reply_message(event.reply_token, FlexSendMessage(alt_text="量化觀測站功能選單", contents=build_line_navigation_flex(web_root)))
+        line_bot_api.reply_message(event.reply_token, FlexSendMessage(alt_text="Stock Papi 功能選單", contents=build_line_navigation_flex(web_root)))
         
     elif msg.startswith("分類第_") and msg.endswith("頁"):
         try: p = int(msg.replace("分類第_", "").replace("頁", ""))

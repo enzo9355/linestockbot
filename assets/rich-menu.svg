@@ -1,72 +1,79 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="2500" height="1686" viewBox="0 0 2500 1686" role="img" aria-label="Stock Papi LINE 圖文選單六格設計稿">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#06111f"/>
-      <stop offset="1" stop-color="#102846"/>
+      <stop offset="0" stop-color="#fffdf8"/>
+      <stop offset="1" stop-color="#f6efe6"/>
     </linearGradient>
-    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#0d2036"/>
-      <stop offset="1" stop-color="#143557"/>
+    <linearGradient id="tileA" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#fff4ea"/>
+    </linearGradient>
+    <linearGradient id="tileB" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#f8f1ff"/>
     </linearGradient>
     <style>
-      .brand{font:800 56px "Noto Sans TC","Microsoft JhengHei",sans-serif;fill:#39c6a3;letter-spacing:4px}
-      .label{font:800 140px "Noto Sans TC","Microsoft JhengHei",sans-serif;fill:#eef6ff}
-      .hint{font:600 46px "Noto Sans TC","Microsoft JhengHei",sans-serif;fill:#9fb4cc}
-      .code{font:900 82px "Noto Sans TC","Microsoft JhengHei",sans-serif;fill:#39c6a3}
-      .tile{fill:url(#tile);stroke:#2b4f70;stroke-width:5}
-      .pill{fill:#102b45;stroke:#39c6a3;stroke-width:4}
+      .brand{font:700 72px "Lora","Noto Serif TC","Microsoft JhengHei",serif;fill:#2a211b;letter-spacing:2px}
+      .label{font:800 132px "Noto Serif TC","Microsoft JhengHei",serif;fill:#2a211b}
+      .hint{font:700 48px "Noto Serif TC","Microsoft JhengHei",serif;fill:#74685d}
+      .code{font:700 68px "Lora","Noto Serif TC","Microsoft JhengHei",serif;fill:#2a211b}
+      .tileA{fill:url(#tileA);stroke:#dbcdbd;stroke-width:5}
+      .tileB{fill:url(#tileB);stroke:#dbcdbd;stroke-width:5}
+      .pillMint{fill:#7fd7c4}
+      .pillApricot{fill:#f4b58a}
+      .pillLavender{fill:#b8a6ea}
     </style>
   </defs>
   <rect width="2500" height="1686" fill="url(#bg)"/>
-  <text class="brand" x="80" y="92">STOCK PAPI</text>
+  <text class="brand" x="86" y="100">STOCK PAPI</text>
   <g transform="translate(42 132)">
-    <rect class="tile" x="0" y="0" width="790" height="710" rx="46"/>
-    <rect class="tile" x="810" y="0" width="790" height="710" rx="46"/>
-    <rect class="tile" x="1620" y="0" width="790" height="710" rx="46"/>
-    <rect class="tile" x="0" y="752" width="790" height="710" rx="46"/>
-    <rect class="tile" x="810" y="752" width="790" height="710" rx="46"/>
-    <rect class="tile" x="1620" y="752" width="790" height="710" rx="46"/>
+    <rect class="tileA" x="0" y="0" width="790" height="710" rx="46"/>
+    <rect class="tileB" x="810" y="0" width="790" height="710" rx="46"/>
+    <rect class="tileA" x="1620" y="0" width="790" height="710" rx="46"/>
+    <rect class="tileB" x="0" y="752" width="790" height="710" rx="46"/>
+    <rect class="tileA" x="810" y="752" width="790" height="710" rx="46"/>
+    <rect class="tileB" x="1620" y="752" width="790" height="710" rx="46"/>
 
     <g transform="translate(84 92)">
-      <rect class="pill" x="0" y="0" width="138" height="108" rx="32"/>
-      <text class="code" x="34" y="78">01</text>
-      <text class="label" x="0" y="300">看大盤</text>
-      <text class="hint" x="0" y="500">今天台股強不強</text>
+      <rect class="pillMint" x="0" y="0" width="154" height="114" rx="36"/>
+      <text class="code" x="42" y="76">01</text>
+      <text class="label" x="0" y="292">看大盤</text>
+      <text class="hint" x="0" y="496">今天盤面偏強還是偏弱</text>
     </g>
 
     <g transform="translate(894 92)">
-      <rect class="pill" x="0" y="0" width="138" height="108" rx="32"/>
-      <text class="code" x="28" y="78">02</text>
-      <text class="label" x="0" y="300">找機會</text>
-      <text class="hint" x="0" y="500">產業排行與題材</text>
+      <rect class="pillApricot" x="0" y="0" width="154" height="114" rx="36"/>
+      <text class="code" x="38" y="76">02</text>
+      <text class="label" x="0" y="292">找機會</text>
+      <text class="hint" x="0" y="496">熱門題材與排行</text>
     </g>
 
     <g transform="translate(1704 92)">
-      <rect class="pill" x="0" y="0" width="138" height="108" rx="32"/>
-      <text class="code" x="27" y="78">03</text>
-      <text class="label" x="0" y="300">查自選</text>
-      <text class="hint" x="0" y="500">你的關注清單</text>
+      <rect class="pillLavender" x="0" y="0" width="154" height="114" rx="36"/>
+      <text class="code" x="38" y="76">03</text>
+      <text class="label" x="0" y="292">查自選</text>
+      <text class="hint" x="0" y="496">你的關注清單</text>
     </g>
 
     <g transform="translate(84 844)">
-      <rect class="pill" x="0" y="0" width="138" height="108" rx="32"/>
-      <text class="code" x="26" y="78">04</text>
-      <text class="label" x="0" y="300">設提醒</text>
-      <text class="hint" x="0" y="500">價格與趨勢通知</text>
+      <rect class="pillLavender" x="0" y="0" width="154" height="114" rx="36"/>
+      <text class="code" x="36" y="76">04</text>
+      <text class="label" x="0" y="292">設提醒</text>
+      <text class="hint" x="0" y="496">收盤與趨勢通知</text>
     </g>
 
     <g transform="translate(894 844)">
-      <rect class="pill" x="0" y="0" width="138" height="108" rx="32"/>
-      <text class="code" x="28" y="78">05</text>
-      <text class="label" x="0" y="300">算報酬</text>
-      <text class="hint" x="0" y="500">投入金額試算</text>
+      <rect class="pillMint" x="0" y="0" width="154" height="114" rx="36"/>
+      <text class="code" x="38" y="76">05</text>
+      <text class="label" x="0" y="292">算報酬</text>
+      <text class="hint" x="0" y="496">投入金額快速試算</text>
     </g>
 
     <g transform="translate(1704 844)">
-      <rect class="pill" x="0" y="0" width="138" height="108" rx="32"/>
-      <text class="code" x="27" y="78">06</text>
-      <text class="label" x="0" y="300">深度分析</text>
-      <text class="hint" x="0" y="500">K線、回測、新聞</text>
+      <rect class="pillApricot" x="0" y="0" width="154" height="114" rx="36"/>
+      <text class="code" x="38" y="76">06</text>
+      <text class="label" x="0" y="292">深度分析</text>
+      <text class="hint" x="0" y="496">圖表、回測、新聞</text>
     </g>
   </g>
 </svg>

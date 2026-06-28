@@ -1,27 +1,61 @@
 {% extends "base.html" %}
-{% block title %}市場總覽｜量化觀測站{% endblock %}
+{% block title %}市場首頁｜Stock Papi{% endblock %}
 {% block nav_dashboard %}active{% endblock %}
 {% block content %}
-<div class="page" data-dashboard-endpoint="/api/dashboard">
-  <header class="page-header">
-    <div><p class="eyebrow">MARKET INTELLIGENCE</p><h1>今日決策總覽</h1><p class="muted">先掌握大盤，再決定今天要追蹤什麼。</p></div>
-  </header>
-
-  <section class="panel market-panel" aria-labelledby="market-title">
-    <div class="section-heading"><div><p class="eyebrow">MARKET PULSE</p><h2 id="market-title">市場摘要</h2></div><span class="status-dot" aria-live="polite">更新中</span></div>
-    <div class="market-grid" data-market-summary><div class="skeleton tall"></div><div class="skeleton tall"></div><div class="skeleton tall"></div></div>
+<div class="page dashboard-page" data-dashboard-endpoint="/api/dashboard">
+  <section class="hero-search glass-panel">
+    <div class="hero-copy">
+      <p class="eyebrow">STOCK PAPI</p>
+      <h1>今天先看市場，再決定要不要出手。</h1>
+      <p class="muted">LINE 管理關注與提醒，網站只做更完整的分析、圖表與建議。</p>
+    </div>
+    <div class="hero-shortcuts" aria-label="常用捷徑">
+      <a href="{{ url_for('stock_page', code='2330') }}">台積電</a>
+      <a href="{{ url_for('market_page') }}">看大盤</a>
+      <a href="#industry-forecast">產業預測</a>
+    </div>
   </section>
 
-  <div class="content-grid">
-    <section class="panel span-2" aria-labelledby="signals-title">
-      <div class="section-heading"><div><p class="eyebrow">OPPORTUNITIES</p><h2 id="signals-title">強勢訊號</h2></div><span class="muted small">依五日上漲機率排序</span></div>
-      <div data-opportunities class="stack"><div class="skeleton"></div><div class="skeleton"></div></div>
-    </section>
-    <section class="panel" id="sectors" aria-labelledby="sectors-title">
-      <div class="section-heading"><div><p class="eyebrow">SECTOR MAP</p><h2 id="sectors-title">產業雷達</h2></div></div>
-      <div class="sector-grid" data-sector-grid></div>
-    </section>
-  </div>
+  <section class="panel pulse-panel" aria-labelledby="market-title">
+    <div class="section-heading">
+      <div><p class="eyebrow">MARKET PULSE</p><h2 id="market-title">市場摘要</h2></div>
+      <span class="status-dot" aria-live="polite">更新中</span>
+    </div>
+    <div class="pulse-grid" data-market-summary><div class="skeleton tall"></div><div class="skeleton tall"></div><div class="skeleton tall"></div></div>
+  </section>
+
+  <section class="panel watchlist-panel" aria-labelledby="watchlist-title">
+    <div class="section-heading">
+      <div><p class="eyebrow">LINE FIRST</p><h2 id="watchlist-title">LINE 管理關注</h2></div>
+    </div>
+    <div class="watchlist-strip" data-watchlist-strip></div>
+  </section>
+
+  <section class="panel forecast-panel" id="industry-forecast" aria-labelledby="forecast-title">
+    <div class="section-heading">
+      <div><p class="eyebrow">INDUSTRY FORECAST</p><h2 id="forecast-title">產業預測</h2></div>
+      <span class="muted small">先看題材，再看領先股</span>
+    </div>
+    <div class="forecast-grid" data-sector-grid></div>
+  </section>
+
+  <section class="panel picks-panel" aria-labelledby="picks-title">
+    <div class="section-heading">
+      <div><p class="eyebrow">TOP PICKS</p><h2 id="picks-title">精選標的</h2></div>
+    </div>
+    <div class="top-picks" data-top-picks></div>
+  </section>
+
+  <section class="panel learn-panel" aria-labelledby="learn-title">
+    <div class="section-heading">
+      <div><p class="eyebrow">LEARN</p><h2 id="learn-title">新手投資小辭典</h2></div>
+    </div>
+    <div class="learn-grid">
+      <article><strong>AI 勝率是什麼？</strong><p>它是五個交易日內方向判斷的機率，不是保證獲利。</p></article>
+      <article><strong>市場情緒怎麼用？</strong><p>情緒適合拿來輔助觀察，不適合單獨當作進出依據。</p></article>
+    </div>
+  </section>
+
   <div class="error-banner" data-dashboard-error hidden>市場資料暫時無法取得，請稍後再試。</div>
 </div>
 {% endblock %}
